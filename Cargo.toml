@@ -1,6 +1,6 @@
 [package]
 name = "forja-gui-core"
-version = "0.9.3"
+version = "0.9.4"
 edition = "2021"
 description = "Núcleo reutilizable de Forja GUI: señales reactivas y logging de estado, sin dependencias de xilem ni del compilador"
 license = "MIT"
