@@ -538,7 +538,7 @@ mod tests {
         data.insert("a".to_string(), json!(1));
         data.insert("b".to_string(), json!("hola"));
 
-        store.init_from(data.clone().into_iter());
+        store.init_from(data.clone());
         assert_eq!(store.get("a"), data.get("a").cloned());
         assert_eq!(store.get("b"), data.get("b").cloned());
     }
