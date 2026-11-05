@@ -1,4 +1,4 @@
-//! Núcleo reutilizable de Forja GUI (F6-T2).
+//! Núcleo reutilizable de Forja GUI.
 //!
 //! Contiene lógica sin dependencia de xilem/masonry ni del compilador:
 //! - [`signals`]: almacén reactivo de variables.
