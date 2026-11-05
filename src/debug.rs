@@ -1,4 +1,4 @@
-//! Logging de estado y callbacks del runtime GUI (F6-T2).
+//! Logging de estado y callbacks del runtime GUI.
 
 /// Retorna true si el modo depuración de GUI está activo.
 pub fn is_debug_enabled() -> bool {
