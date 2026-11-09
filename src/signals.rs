@@ -30,16 +30,16 @@ pub struct Signal<T> {
 
 #[derive(Debug)]
 struct SignalInner<T> {
-    value: T,
+    valor: T,
     generation: u64,
 }
 
 impl<T> Signal<T> {
     /// Crea una nueva señal con el valor inicial y generación 0.
-    pub fn new(value: T) -> Self {
+    pub fn nuevo(valor: T) -> Self {
         Signal {
             inner: Arc::new(RwLock::new(SignalInner {
-                value,
+                valor,
                 generation: 0,
             })),
         }
@@ -47,18 +47,18 @@ impl<T> Signal<T> {
 
     /// Obtiene el valor actual (clonado) y su generación.
     /// Requiere `T: Clone`.
-    pub fn get(&self) -> (T, u64)
+    pub fn obtener(&self) -> (T, u64)
     where
         T: Clone,
     {
         let guard = self.inner.read().expect("Signal::get lock poisoned");
-        (guard.value.clone(), guard.generation)
+        (guard.valor.clone(), guard.generation)
     }
 
     /// Escribe un nuevo valor, incrementa la generación y la retorna.
-    pub fn write(&self, value: T) -> u64 {
+    pub fn escribir(&self, valor: T) -> u64 {
         let mut guard = self.inner.write().expect("Signal::write lock poisoned");
-        guard.value = value;
+        guard.valor = valor;
         guard.generation += 1;
         guard.generation
     }
@@ -72,24 +72,24 @@ impl<T> Signal<T> {
     }
 
     /// Reemplaza el valor y retorna el valor anterior junto con la nueva generación.
-    pub fn replace(&self, value: T) -> (T, u64)
+    pub fn replace(&self, valor: T) -> (T, u64)
     where
         T: Clone,
     {
         let mut guard = self.inner.write().expect("Signal::replace lock poisoned");
-        let old = guard.value.clone();
-        guard.value = value;
+        let old = guard.valor.clone();
+        guard.valor = valor;
         guard.generation += 1;
         (old, guard.generation)
     }
 
     /// Actualiza el valor mediante una función, incrementa generación.
-    pub fn update<F>(&self, f: F) -> u64
+    pub fn actualizar<F>(&self, f: F) -> u64
     where
         F: FnOnce(&mut T),
     {
         let mut guard = self.inner.write().expect("Signal::update lock poisoned");
-        f(&mut guard.value);
+        f(&mut guard.valor);
         guard.generation += 1;
         guard.generation
     }
@@ -98,13 +98,13 @@ impl<T> Signal<T> {
 impl<T: PartialEq> Signal<T> {
     /// Escribe solo si el nuevo valor es diferente al actual.
     /// Retorna `true` si hubo cambio (y se incrementó la generación).
-    pub fn write_if_changed(&self, value: T) -> bool {
+    pub fn escribir_if_changed(&self, valor: T) -> bool {
         let mut guard = self
             .inner
             .write()
             .expect("Signal::write_if_changed lock poisoned");
-        if guard.value != value {
-            guard.value = value;
+        if guard.valor != valor {
+            guard.valor = valor;
             guard.generation += 1;
             true
         } else {
@@ -134,25 +134,25 @@ pub struct Stream<T> {
 
 #[derive(Debug)]
 struct StreamInner<T> {
-    value: Option<T>,
+    valor: Option<T>,
     generation: u64,
 }
 
 impl<T> Stream<T> {
     /// Crea un nuevo stream vacío.
-    pub fn new() -> Self {
+    pub fn nuevo() -> Self {
         Stream {
             inner: Arc::new(RwLock::new(StreamInner {
-                value: None,
+                valor: None,
                 generation: 0,
             })),
         }
     }
 
     /// Emite un valor al stream, incrementando la generación.
-    pub fn emit(&self, value: T) -> u64 {
+    pub fn emitir(&self, valor: T) -> u64 {
         let mut guard = self.inner.write().expect("Stream::emit lock poisoned");
-        guard.value = Some(value);
+        guard.valor = Some(valor);
         guard.generation += 1;
         guard.generation
     }
@@ -163,7 +163,7 @@ impl<T> Stream<T> {
         T: Clone,
     {
         let guard = self.inner.read().expect("Stream::peek lock poisoned");
-        (guard.value.clone(), guard.generation)
+        (guard.valor.clone(), guard.generation)
     }
 
     /// Obtiene la generación actual.
@@ -177,7 +177,7 @@ impl<T> Stream<T> {
 
 impl<T> Default for Stream<T> {
     fn default() -> Self {
-        Self::new()
+        Self::nuevo()
     }
 }
 
@@ -201,10 +201,10 @@ pub enum ValorReactivio<T: Clone> {
 
 impl<T: Clone> ValorReactivio<T> {
     /// Obtiene el valor actual y su generación (0 si es fijo).
-    pub fn get(&self) -> (T, u64) {
+    pub fn obtener(&self) -> (T, u64) {
         match self {
             ValorReactivio::Fijo(val) => (val.clone(), 0),
-            ValorReactivio::Signal(sig) => sig.get(),
+            ValorReactivio::Signal(sig) => sig.obtener(),
         }
     }
 
@@ -250,7 +250,7 @@ impl<T: Clone> From<Signal<T>> for ValorReactivio<T> {
 /// # Reactividad
 /// ```ignore
 /// let store = VariableStore::new();
-/// store.set("contador", json!(42));
+/// store.fijar("contador", json!(42));
 /// let gen = store.generation("contador");
 /// // ... algo cambia ...
 /// if store.generation("contador") != gen {
@@ -261,17 +261,17 @@ impl<T: Clone> From<Signal<T>> for ValorReactivio<T> {
 /// # Thread Safety
 /// `VariableStore` es `Send + Sync`.
 #[derive(Debug, Clone)]
-pub struct VariableStore {
+pub struct VariableAlmacen {
     signals: Arc<RwLock<HashMap<String, Signal<serde_json::Value>>>>,
     /// Generación global que se incrementa en cada escritura.
     /// Útil para invalidación completa del árbol.
     global_gen: Arc<AtomicU64>,
 }
 
-impl VariableStore {
+impl VariableAlmacen {
     /// Crea un nuevo VariableStore vacío.
-    pub fn new() -> Self {
-        VariableStore {
+    pub fn nuevo() -> Self {
+        VariableAlmacen {
             signals: Arc::new(RwLock::new(HashMap::new())),
             global_gen: Arc::new(AtomicU64::new(0)),
         }
@@ -279,45 +279,45 @@ impl VariableStore {
 
     /// Obtiene o crea la señal para una variable.
     fn ensure_signal(&self, name: &str) -> Signal<serde_json::Value> {
-        let mut map = self
+        let mut mapa = self
             .signals
             .write()
             .expect("VariableStore::ensure_signal lock poisoned");
-        map.entry(name.to_string())
-            .or_insert_with(|| Signal::new(serde_json::Value::Null))
+        mapa.entry(name.to_string())
+            .or_insert_with(|| Signal::nuevo(serde_json::Value::Null))
             .clone()
     }
 
     /// Obtiene la señal para una variable, si existe.
-    fn get_signal(&self, name: &str) -> Option<Signal<serde_json::Value>> {
-        let map = self
+    fn obtener_signal(&self, name: &str) -> Option<Signal<serde_json::Value>> {
+        let mapa = self
             .signals
             .read()
             .expect("VariableStore::get_signal lock poisoned");
-        map.get(name).cloned()
+        mapa.get(name).cloned()
     }
 
     /// Lee el valor de una variable.
     /// Si no existe, retorna `None`.
-    pub fn get(&self, name: &str) -> Option<serde_json::Value> {
-        self.get_signal(name).map(|sig| sig.get().0)
+    pub fn obtener(&self, name: &str) -> Option<serde_json::Value> {
+        self.obtener_signal(name).map(|sig| sig.obtener().0)
     }
 
     /// Escribe un valor en una variable, incrementa su generación
     /// y la generación global. Retorna la generación de la señal.
-    pub fn set(&self, name: &str, value: serde_json::Value) -> u64 {
-        let old_val = self.get(name);
+    pub fn fijar(&self, name: &str, valor: serde_json::Value) -> u64 {
+        let old_val = self.obtener(name);
         let signal = self.ensure_signal(name);
-        let gen = signal.write(value.clone());
+        let gen = signal.escribir(valor.clone());
         self.global_gen.fetch_add(1, Ordering::Release);
-        crate::debug::log_state_change(name, old_val.as_ref(), &value);
+        crate::debug::log_state_change(name, old_val.as_ref(), &valor);
         gen
     }
 
     /// Obtiene la generación de una variable específica.
     /// Si no existe, retorna 0.
     pub fn generation(&self, name: &str) -> u64 {
-        self.get_signal(name)
+        self.obtener_signal(name)
             .map(|sig| sig.generation())
             .unwrap_or(0)
     }
@@ -329,56 +329,56 @@ impl VariableStore {
 
     /// Verifica si una variable existe.
     pub fn contains(&self, name: &str) -> bool {
-        let map = self
+        let mapa = self
             .signals
             .read()
             .expect("VariableStore::contains lock poisoned");
-        map.contains_key(name)
+        mapa.contains_key(name)
     }
 
     /// Obtiene el número de variables almacenadas.
-    pub fn len(&self) -> usize {
-        let map = self
+    pub fn longitud(&self) -> usize {
+        let mapa = self
             .signals
             .read()
             .expect("VariableStore::len lock poisoned");
-        map.len()
+        mapa.len()
     }
 
     /// Retorna true si no hay variables.
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
+    pub fn es_vacio(&self) -> bool {
+        self.longitud() == 0
     }
 
     /// Obtiene un snapshot de todas las variables (para depuración).
     pub fn snapshot(&self) -> HashMap<String, serde_json::Value> {
-        let map = self
+        let mapa = self
             .signals
             .read()
             .expect("VariableStore::snapshot lock poisoned");
-        map.iter()
-            .map(|(k, sig)| (k.clone(), sig.get().0))
+        mapa.iter()
+            .map(|(k, sig)| (k.clone(), sig.obtener().0))
             .collect()
     }
 
     /// Inicializa múltiples variables desde un iterador.
-    pub fn init_from<I: IntoIterator<Item = (String, serde_json::Value)>>(&self, iter: I) {
-        let mut map = self
+    pub fn inicializar_from<I: IntoIterator<Item = (String, serde_json::Value)>>(&self, iter: I) {
+        let mut mapa = self
             .signals
             .write()
             .expect("VariableStore::init_from lock poisoned");
-        for (name, value) in iter {
-            let entry = map
+        for (name, valor) in iter {
+            let entrada = mapa
                 .entry(name)
-                .or_insert_with(|| Signal::new(serde_json::Value::Null));
-            entry.write(value);
+                .or_insert_with(|| Signal::nuevo(serde_json::Value::Null));
+            entrada.escribir(valor);
         }
     }
 }
 
-impl Default for VariableStore {
+impl Default for VariableAlmacen {
     fn default() -> Self {
-        Self::new()
+        Self::nuevo()
     }
 }
 
@@ -396,7 +396,7 @@ pub struct ReactiveCtx {
 
 impl ReactiveCtx {
     /// Crea un nuevo contexto reactivo.
-    pub fn new() -> Self {
+    pub fn nuevo() -> Self {
         ReactiveCtx {
             dependencies: Arc::new(RwLock::new(Vec::new())),
         }
@@ -412,7 +412,7 @@ impl ReactiveCtx {
     }
 
     /// Obtiene las dependencias registradas.
-    pub fn get_dependencies(&self) -> Vec<String> {
+    pub fn obtener_dependencies(&self) -> Vec<String> {
         self.dependencies
             .read()
             .map(|deps| deps.clone())
@@ -420,7 +420,7 @@ impl ReactiveCtx {
     }
 
     /// Limpia las dependencias registradas.
-    pub fn clear(&self) {
+    pub fn limpiar(&self) {
         if let Ok(mut deps) = self.dependencies.write() {
             deps.clear();
         }
@@ -429,27 +429,27 @@ impl ReactiveCtx {
 
 impl Default for ReactiveCtx {
     fn default() -> Self {
-        Self::new()
+        Self::nuevo()
     }
 }
 
 // ─── Reactive Operations (helpers para widgets) ─────────────────────
 //
 /// Lee un valor reactivo con tracking de dependencia.
-pub fn read_var(
-    store: &VariableStore,
+pub fn leer_variable(
+    almacen: &VariableAlmacen,
     name: &str,
     _ctx: Option<&ReactiveCtx>,
 ) -> Option<serde_json::Value> {
     if let Some(ctx) = _ctx {
         ctx.track_dependency(name);
     }
-    store.get(name)
+    almacen.obtener(name)
 }
 
 /// Escribe un valor reactivo.
-pub fn write_var(store: &VariableStore, name: &str, value: serde_json::Value) -> u64 {
-    store.set(name, value)
+pub fn escribir_variable(almacen: &VariableAlmacen, name: &str, valor: serde_json::Value) -> u64 {
+    almacen.fijar(name, valor)
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────
@@ -461,144 +461,144 @@ mod tests {
 
     #[test]
     fn test_signal_basic() {
-        let sig = Signal::new(42i64);
+        let sig = Signal::nuevo(42i64);
         assert_eq!(sig.generation(), 0);
 
-        let (_, gen) = sig.get();
+        let (_, gen) = sig.obtener();
         assert_eq!(gen, 0);
 
-        let new_gen = sig.write(100);
-        assert!(new_gen > 0);
-        assert_eq!(sig.generation(), new_gen);
+        let nuevo_generacion = sig.escribir(100);
+        assert!(nuevo_generacion > 0);
+        assert_eq!(sig.generation(), nuevo_generacion);
 
-        let (val, _) = sig.get();
+        let (val, _) = sig.obtener();
         assert_eq!(val, 100);
     }
 
     #[test]
-    fn test_signal_write_if_changed() {
-        let sig = Signal::new(42i64);
-        assert!(!sig.write_if_changed(42)); // mismo valor
+    fn test_signal_escribir_if_changed() {
+        let sig = Signal::nuevo(42i64);
+        assert!(!sig.escribir_if_changed(42)); // mismo valor
         assert_eq!(sig.generation(), 0);
 
-        assert!(sig.write_if_changed(100)); // valor diferente
+        assert!(sig.escribir_if_changed(100)); // valor diferente
         assert_eq!(sig.generation(), 1);
     }
 
     #[test]
-    fn test_signal_update() {
-        let sig = Signal::new(vec![1, 2, 3]);
-        sig.update(|v| v.push(4));
-        assert_eq!(sig.get().0, vec![1, 2, 3, 4]);
+    fn test_signal_actualizar() {
+        let sig = Signal::nuevo(vec![1, 2, 3]);
+        sig.actualizar(|v| v.push(4));
+        assert_eq!(sig.obtener().0, vec![1, 2, 3, 4]);
     }
 
     #[test]
-    fn test_signal_thread_safety() {
-        let sig = Signal::new(0i64);
+    fn test_signal_hilo_safety() {
+        let sig = Signal::nuevo(0i64);
         let sig2 = sig.clone();
 
         std::thread::spawn(move || {
-            sig2.write(42);
+            sig2.escribir(42);
         })
         .join()
         .unwrap();
 
-        assert_eq!(sig.get().0, 42);
+        assert_eq!(sig.obtener().0, 42);
     }
 
     #[test]
-    fn test_variable_store() {
-        let store = VariableStore::new();
+    fn test_variable_almacen() {
+        let almacen = VariableAlmacen::nuevo();
 
         // set/get
-        store.set("nombre", json!("Juan"));
-        assert_eq!(store.get("nombre"), Some(json!("Juan")));
+        almacen.fijar("nombre", json!("Juan"));
+        assert_eq!(almacen.obtener("nombre"), Some(json!("Juan")));
 
         // generation
-        let gen1 = store.generation("nombre");
+        let gen1 = almacen.generation("nombre");
         assert!(gen1 > 0);
 
-        store.set("nombre", json!("María"));
-        let gen2 = store.generation("nombre");
+        almacen.fijar("nombre", json!("María"));
+        let gen2 = almacen.generation("nombre");
         assert!(gen2 > gen1);
 
         // contains
-        assert!(store.contains("nombre"));
-        assert!(!store.contains("no_existe"));
+        assert!(almacen.contains("nombre"));
+        assert!(!almacen.contains("no_existe"));
 
         // non-existent
-        assert_eq!(store.get("no_existe"), None);
-        assert_eq!(store.generation("no_existe"), 0);
+        assert_eq!(almacen.obtener("no_existe"), None);
+        assert_eq!(almacen.generation("no_existe"), 0);
     }
 
     #[test]
-    fn test_variable_store_init() {
-        let store = VariableStore::new();
+    fn test_variable_almacen_inicializar() {
+        let almacen = VariableAlmacen::nuevo();
         let mut data = HashMap::new();
         data.insert("a".to_string(), json!(1));
         data.insert("b".to_string(), json!("hola"));
 
-        store.init_from(data.clone());
-        assert_eq!(store.get("a"), data.get("a").cloned());
-        assert_eq!(store.get("b"), data.get("b").cloned());
+        almacen.inicializar_from(data.clone());
+        assert_eq!(almacen.obtener("a"), data.get("a").cloned());
+        assert_eq!(almacen.obtener("b"), data.get("b").cloned());
     }
 
     #[test]
     fn test_valor_reactivio() {
-        let sig = Signal::new(42i64);
+        let sig = Signal::nuevo(42i64);
         let fijo: ValorReactivio<i64> = ValorReactivio::Fijo(10);
         let reactivo: ValorReactivio<i64> = ValorReactivio::Signal(sig);
 
-        assert_eq!(fijo.get(), (10, 0));
+        assert_eq!(fijo.obtener(), (10, 0));
         assert_eq!(reactivo.generation(), 0);
 
         if let ValorReactivio::Signal(s) = &reactivo {
-            s.write(99);
+            s.escribir(99);
         }
-        assert_eq!(reactivo.get().0, 99);
+        assert_eq!(reactivo.obtener().0, 99);
     }
 
     #[test]
-    fn test_variable_store_thread_safety() {
-        let store = VariableStore::new();
-        let store_clone = store.clone();
+    fn test_variable_almacen_hilo_safety() {
+        let almacen = VariableAlmacen::nuevo();
+        let almacen_clonar = almacen.clone();
 
         let handle = std::thread::spawn(move || {
-            store_clone.set("x", json!(42));
+            almacen_clonar.fijar("x", json!(42));
         });
 
         handle.join().unwrap();
-        assert_eq!(store.get("x"), Some(json!(42)));
+        assert_eq!(almacen.obtener("x"), Some(json!(42)));
     }
 
     #[test]
-    fn test_store_snapshot_and_len() {
-        let store = VariableStore::new();
-        assert!(store.is_empty());
-        assert_eq!(store.len(), 0);
+    fn test_almacen_snapshot_and_longitud() {
+        let almacen = VariableAlmacen::nuevo();
+        assert!(almacen.es_vacio());
+        assert_eq!(almacen.longitud(), 0);
 
-        store.set("x", json!(1));
-        store.set("y", json!(2));
+        almacen.fijar("x", json!(1));
+        almacen.fijar("y", json!(2));
 
-        assert_eq!(store.len(), 2);
-        assert!(!store.is_empty());
+        assert_eq!(almacen.longitud(), 2);
+        assert!(!almacen.es_vacio());
 
-        let snap = store.snapshot();
+        let snap = almacen.snapshot();
         assert_eq!(snap.len(), 2);
         assert_eq!(snap.get("x"), Some(&json!(1)));
     }
 
     #[test]
     fn test_signal_clone_independent_gen() {
-        let sig = Signal::new("original".to_string());
+        let sig = Signal::nuevo("original".to_string());
         let cloned = sig.clone();
 
         // cloned ve el mismo valor inicial
-        assert_eq!(cloned.get().0, "original".to_string());
+        assert_eq!(cloned.obtener().0, "original".to_string());
 
         // escribir en original incrementa la gen para todos
-        sig.write("modificado".to_string());
-        assert_eq!(cloned.get().0, "modificado".to_string());
+        sig.escribir("modificado".to_string());
+        assert_eq!(cloned.obtener().0, "modificado".to_string());
 
         // generation se comparte porque apunta al mismo Arc
         assert_eq!(sig.generation(), cloned.generation());
@@ -606,26 +606,26 @@ mod tests {
 
     #[test]
     fn test_global_generation() {
-        let store = VariableStore::new();
-        let g0 = store.global_generation();
+        let almacen = VariableAlmacen::nuevo();
+        let g0 = almacen.global_generation();
 
-        store.set("a", json!(1));
-        assert!(store.global_generation() > g0);
+        almacen.fijar("a", json!(1));
+        assert!(almacen.global_generation() > g0);
 
-        let g1 = store.global_generation();
-        store.set("b", json!(2));
-        assert!(store.global_generation() > g1);
+        let g1 = almacen.global_generation();
+        almacen.fijar("b", json!(2));
+        assert!(almacen.global_generation() > g1);
     }
 
     #[test]
     fn test_stream_basic() {
-        let stream = Stream::new();
+        let stream = Stream::nuevo();
         assert_eq!(stream.generation(), 0);
 
-        stream.emit("hola");
+        stream.emitir("hola");
         assert!(stream.generation() > 0);
 
-        stream.emit("mundo");
+        stream.emitir("mundo");
         assert!(stream.generation() > 0);
     }
 }
