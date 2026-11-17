@@ -1,8 +1,23 @@
 //! Logging de estado y callbacks del runtime GUI.
 
 /// Retorna true si el modo depuración de GUI está activo.
+///
+/// Se activa con `FORJA_GUI_DEBUG=1`, `FORJA_DEBUG=1` o `FORJA_GUI_PERF=1`.
+/// Antes devolvía `true` fijo: cada escritura de variable (y son muchas por
+/// frame) armaba y escribía trazas en stderr, aunque la app GUI no tuviera
+/// consola.
 pub fn es_depuracion_enabled() -> bool {
-    true
+    use std::sync::OnceLock;
+    static ACTIVO: OnceLock<bool> = OnceLock::new();
+    *ACTIVO.get_or_init(|| {
+        ["FORJA_GUI_DEBUG", "FORJA_DEBUG", "FORJA_GUI_PERF"]
+            .iter()
+            .any(|var| {
+                std::env::var(var)
+                    .map(|v| v != "0" && !v.trim().is_empty())
+                    .unwrap_or(false)
+            })
+    })
 }
 
 /// Imprime un mensaje formateado con prefijo si el modo debug está activo.
